@@ -193,25 +193,29 @@ io.sockets.on('connection',function(socket){
     SOCKET_LIST[socket.id] = socket;
 
     socket.on('signIn', function(data){
-        if(isValidPassword(data)){
-            Player.onConnect(socket);
-            socket.emit('signInResponse',{success:true});
-
-        }else {
-            socket.emit('signInResponse',{success:false});
-        }
-      
+        isValidPassword(data,function(res){
+            if(res){
+                Player.onConnect(socket);
+                socket.emit('signInResponse',{success:true});
+    
+            }else {
+                socket.emit('signInResponse',{success:false});
+            }
+        });
     });
 
     socket.on('signUp', function(data){
-        if(isUsernameTaken(data)){
-            socket.emit('signUpResponse',{success:false});
+        isUsernameTaken(data,function(res){
+            if(res){
+                socket.emit('signUpResponse',{success:false});
+    
+            }else {
+                addUser(data,function(){
+                    socket.emit('signUpResponse',{success:true});
 
-        }else {
-            addUser(data);
-            socket.emit('signUpResponse',{success:true});
-        }
-      
+                });
+            }
+        });
     });
 
     socket.on('disconnect', function(){
