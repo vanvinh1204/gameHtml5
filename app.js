@@ -1,3 +1,7 @@
+var mongojs =require("mongojs");
+var db = mongojs('localhost:27017/myGame',['account','progress']);
+
+
 var express = require('express');
 var app =express();
 var serv = require('http').Server(app);
@@ -10,7 +14,6 @@ app.use('/client',express.static(__dirname + '/client'));
 
 serv.listen(2000);
 var SOCKET_LIST = {};
-
 
 var Entity = function(){
     var self = {
@@ -107,9 +110,10 @@ Player.update = function(){
         var player = Player.list[i];
         player.update();
         pack.push({
+            id:player.id,
             x:player.x,
-            y:player.y,
-            number:player.number
+            y:player.y
+            
         });
     }
     return pack;
@@ -140,8 +144,8 @@ var Bullet = function(parent,angle){
     return self;
 }
 Bullet.list =  {};
-Bullet.update = function(){
 
+Bullet.update = function(){
     var pack = [];
     for(var i in Bullet.list){
         var bullet = Bullet.list[i];
@@ -149,8 +153,9 @@ Bullet.update = function(){
         if(bullet.toRemove) delete Bullet.list[i];
         else 
             pack.push({
+                id:bullet.id,
                 x:bullet.x,
-                y:bullet.y,
+                y:bullet.y
 
             });
     }
@@ -166,26 +171,29 @@ var USERS = {
 
 }
 var isValidPassword = function(data,cb){
-    setTimeout(function(){
-        cb(USERS[data.username] === data.password);
-    },10);
+    db.account.find({username:data.username,password:data.password},function(err,res){
+        if(res.length > 0)
+            cb(true);
+        else
+            cb(false);
+    });
     
 }
 
 var isUsernameTaken = function(data,cb){
-    setTimeout(function(){
-        cb(USERS[data.username]);
-    },10);
+    db.account.find({username:data.username},function(err,res){
+        if(res.length > 0)
+            cb(true);
+        else
+            cb(false);
+    });
 }
 
 var addUser = function(data,cb){
-    setTimeout(function(){
-        USERS[data.username]=data.password;
+    db.account.insert({username:data.username,password:data.password},function(err){
         cb();
-    },10);    
+    });    
 }
-
-
 
 var io = require('socket.io')(serv,{});
 io.sockets.on('connection',function(socket){
@@ -238,6 +246,9 @@ io.sockets.on('connection',function(socket){
     
 });
 
+var initPack = {player:[],bullet:[]};
+var removePack ={player:[],bullet:[]};
+
 setInterval(function(){
     var pack = {
         player:Player.update(),
@@ -246,6 +257,6 @@ setInterval(function(){
     
     for(var i in SOCKET_LIST){
         var socket = SOCKET_LIST[i];
-        socket.emit('newPosition',pack);
+        socket.emit('update',pack);
     }
 },1000/25);
